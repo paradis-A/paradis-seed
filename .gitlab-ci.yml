@@ -1,0 +1,62 @@
+# Official framework image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/node/tags/
+
+# This folder is cached between builds
+# http://docs.gitlab.com/ee/ci/yaml/README.html#cache
+cache:
+    paths:
+        - node_modules/
+
+test:node_latest:
+    image: node:latest
+    script:
+        - npm install
+        - echo "$COVERALLS_REPO_TOKEN"
+        - npm run coverage
+
+test:node_10:
+    image: node:10
+    script:
+        - npm install
+        - npm run test
+
+test:node_11:
+    image: node:11
+    script:
+        - npm install
+        - npm run test
+    only:
+        - tags
+
+test:node_12:
+    image: node:12
+    script:
+        - npm install
+        - npm run test
+    only:
+        - tags
+
+test:node_13:
+    image: node:13
+    script:
+        - npm install
+        - npm run test
+    only:
+        - tags
+
+test:node_14:
+    image: node:14
+    script:
+        - npm install
+        - npm run test
+    only:
+        - tags
+
+test:node_15:
+    image: node:15
+    script:
+        - npm install
+        - npm run test
+    only:
+        - tags
+

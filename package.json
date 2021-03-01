@@ -1,0 +1,75 @@
+{
+    "name": "paradis-redbean-node",
+    "version": "0.0.19",
+    "description": "RedBeanNode is an easy to use ORM tool for Node.js, strongly inspired by RedBeanPHP. It automatically generates the tables and columns on-the-fly",
+    "main": "dist/redbean-node.js",
+    "types": "dist/redbean-node.d.ts",
+    "files": [
+        "dist",
+        "README.md",
+        ".gitignore"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "test": "npm run build && nyc --reporter=html mocha --timeout 60000",
+        "coverage": "npm test && nyc report --reporter=text-lcov | coveralls",
+        "launch": "np",
+        "example": "ts-node dev_example.ts",
+        "example2": "node -r ts-node/register --inspect dev_example2.ts"
+    },
+    "author": "Louis Lam",
+    "license": "MIT",
+    "dependencies": {
+        "@types/node": "^14.11.2",
+        "await-lock": "^2.1.0",
+        "dayjs": "^1.9.3",
+        "glob": "^7.1.6",
+        "knex": "^0.21.6",
+        "mysql": "^2.18.1"
+    },
+    "homepage": "https://redbean-node.whatsticker.online",
+    "bugs": {
+        "url": "https://github.com/louislam/redbean-node/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/louislam/redbean-node"
+    },
+    "keywords": [
+        "redbeanphp",
+        "orm",
+        "sql",
+        "mysql",
+        "mariadb",
+        "sqlite",
+        "query",
+        "knex",
+        "bean",
+        "redbean",
+        "redbean-node",
+        "redbeannode"
+    ],
+    "np": {
+        "releaseDraft": false,
+        "cleanup": false
+    },
+    "devDependencies": {
+        "@types/knex": "^0.16.1",
+        "chai": "^4.2.0",
+        "coveralls": "^3.1.0",
+        "mocha": "^8.2.0",
+        "mocha-lcov-reporter": "^1.3.0",
+        "np": "^6.5.0",
+        "nyc": "^15.1.0",
+        "ts-node": "^9.0.0",
+        "typescript": "^4.0.3"
+    },
+    "peerDependencies": {
+        "mssql": "^6.2.1"
+    },
+    "peerDependenciesMeta": {
+        "mssql": {
+            "optional": true
+        }
+    }
+}
