@@ -4,16 +4,15 @@ import knex, {
     QueryBuilder,
     RawBinding,
     StaticConnectionConfig,
-} from "knex";
-import { Bean } from "./bean";
-import { isEmptyObject, LooseObject } from "./helper/helper";
-import dayjs from "dayjs";
-import glob from "glob";
-import path from "path";
-import { BeanModel } from "./bean-model";
-import BeanConverterStream from "./bean-converter-stream";
-// @ts-ignore
-import AwaitLock from "await-lock";
+} from "knex"
+import { Bean } from "./bean"
+import { isEmptyObject, LooseObject } from "./helper/helper"
+import dayjs from "dayjs"
+import glob from "glob"
+import path from "path"
+import { BeanModel } from "./bean-model"
+import BeanConverterStream from "./bean-converter-stream"
+import AwaitLock from "await-lock"
 // import PromisePool from 'es6-promise-pool';
 
 export class RedBeanNode {
@@ -24,26 +23,23 @@ export class RedBeanNode {
     protected _debug = false;
     protected _freeze = false;
 
-    protected _transaction;
-    protected _knex!: knex;
+    protected _transaction
+    protected _knex: knex
     public dbType: string = "";
 
-    private _modelList: LooseObject<{ new (type, R): BeanModel }> = {};
+    private _modelList: LooseObject<{ new(type, R): BeanModel }> = {};
 
     protected schemaLock = new AwaitLock();
 
-    /**
-     * If use this on transaction
-     */
     get knex() {
         if (this._transaction) {
-            return this._transaction;
+            return this._transaction
         }
-        return this._knex;
+        return this._knex
     }
 
     isTransaction() {
-        return !!this._transaction;
+        return !!this._transaction
     }
 
     setup(
@@ -54,41 +50,41 @@ export class RedBeanNode {
         if (typeof dbType === "string") {
             if (!pool.min) {
                 if (dbType == "sqlite") {
-                    pool.min = 1;
+                    pool.min = 1
                 } else {
-                    pool.min = 2;
+                    pool.min = 2
                 }
             }
 
             if (!pool.max) {
                 if (dbType == "sqlite") {
-                    pool.min = 1;
+                    pool.min = 1
                 } else {
-                    pool.min = 10;
+                    pool.min = 10
                 }
             }
 
             if (!pool.idleTimeoutMillis) {
-                pool.idleTimeoutMillis = 30000;
+                pool.idleTimeoutMillis = 30000
             }
 
             if (dbType == "mariadb") {
-                dbType = "mysql";
+                dbType = "mysql"
             }
 
-            this.dbType = dbType;
+            this.dbType = dbType
 
-            let useNullAsDefault = dbType == "sqlite";
+            let useNullAsDefault = dbType == "sqlite"
 
             this._knex = knex({
                 client: dbType,
                 connection,
                 useNullAsDefault,
                 pool,
-            });
+            })
         } else {
-            this._knex = dbType;
-            this.dbType = this._knex.client.config.client;
+            this._knex = dbType
+            this.dbType = this._knex.client.config.client
         }
     }
 
@@ -97,52 +93,52 @@ export class RedBeanNode {
      * @param type
      */
     dispense(type: string): Bean {
-        return this.createBean(type);
+        return this.createBean(type)
     }
 
     protected createBean(type: string, isDispense = true) {
         if (type in this.modelList) {
-            let bean: BeanModel = new this.modelList[type](type, this);
+            let bean: BeanModel = new this.modelList[type](type, this)
 
             if (isDispense) {
-                bean.onDispense();
+                bean.onDispense()
             }
 
-            return bean;
+            return bean
         } else {
-            return new Bean(type, this);
+            return new Bean(type, this)
         }
     }
 
     freeze(v = true) {
-        this._freeze = v;
+        this._freeze = v
     }
 
     debug(v: boolean) {
-        this._debug = v;
+        this._debug = v
     }
 
     concurrent(promiseList: Promise<any>[]) {
-        return Promise.all(promiseList);
+        return Promise.all(promiseList)
     }
 
     storeAll(beans: Bean[], changedFieldsOnly = true) {
-        let promiseList: Promise<any>[] = [];
+        let promiseList: Promise<any>[] = []
 
         for (let bean of beans) {
-            promiseList.push(this.store(bean, changedFieldsOnly));
+            promiseList.push(this.store(bean, changedFieldsOnly))
         }
 
-        return this.concurrent(promiseList);
+        return this.concurrent(promiseList)
     }
 
     async store(bean: Bean, changedFieldsOnly = true) {
-        await bean.beanMeta.lock.acquireAsync();
+        await bean.beanMeta.lock.acquireAsync()
 
         try {
-            return await this.storeCore(bean, changedFieldsOnly);
+            return await this.storeCore(bean, changedFieldsOnly)
         } finally {
-            bean.beanMeta.lock.release();
+            bean.beanMeta.lock.release()
         }
     }
 
@@ -150,20 +146,22 @@ export class RedBeanNode {
         bean: Bean,
         changedFieldsOnly = true
     ): Promise<number> {
-        this.devLog("Store", bean.beanMeta.type, bean.id);
+        this.devLog("Store", bean.beanMeta.type, bean.id)
 
-        await bean.storeTypeBeanList();
+        await bean.storeTypeBeanList()
 
         if (bean instanceof BeanModel) {
-            bean.onUpdate();
+            bean.onUpdate()
         }
+
+        let generatedTable = {}
 
         if (!this._freeze) {
-            await this.updateTableSchema(bean);
+            await this.updateTableSchema(bean)
         }
 
-        let obj = bean.export(false);
-        delete obj.id;
+        let obj = bean.export(false)
+        delete obj.id
 
         // Update
         // else insert
@@ -172,107 +170,106 @@ export class RedBeanNode {
             if (changedFieldsOnly) {
                 for (let key in obj) {
                     if (!(Bean.internalName(key) in bean.beanMeta.old)) {
-                        this.devLog(key + " is not updated");
-                        delete obj[key];
+                        this.devLog(key + " is not updated")
+                        delete obj[key]
                     }
                 }
             }
 
-            this.devLog("values to be updated:");
-            this.devLog(obj);
+            this.devLog("values to be updated:")
+            this.devLog(obj)
 
             if (!isEmptyObject(obj)) {
                 let queryPromise = this.knex(bean.getType())
                     .where({ id: bean.id })
-                    .update(obj);
-                this.queryLog(queryPromise);
-                await queryPromise;
+                    .update(obj)
+                this.queryLog(queryPromise)
+                await queryPromise
             } else {
-                this.devLog("Empty obj, no need to make query");
+                this.devLog("Empty obj, no need to make query")
             }
         } else {
-            let queryPromise = this.knex(bean.getType()).insert(obj);
+            let queryPromise = this.knex(bean.getType()).insert(obj)
 
             if (this.dbType == "mssql") {
-                queryPromise = queryPromise.returning("id");
+                queryPromise = queryPromise.returning("id")
             }
 
-            this.queryLog(queryPromise);
-            let result = await queryPromise;
-            bean.id = result[0];
+            this.queryLog(queryPromise)
+            let result = await queryPromise
+            bean.id = result[0]
         }
 
         // Store Shared List
         // Must be here, because the bean id is needed
-        await bean.storeSharedList();
-        await bean.storeOwnList();
-
+        await bean.storeSharedList()
+        await bean.storeOwnList()
         // Clear History, tainted to false
-        bean.beanMeta.old = {};
+        bean.beanMeta.old = {}
 
         if (bean instanceof BeanModel) {
-            bean.onAfterUpdate();
+            bean.onAfterUpdate()
         }
 
-        return bean.id;
+        return bean.id
     }
-
+    // TODO schema returns here
     protected async updateTableSchema(bean: Bean, changedFieldsOnly = true) {
-        await this.schemaLock.acquireAsync();
+        await this.schemaLock.acquireAsync()
 
         try {
-            await this.updateTableSchemaCore(bean);
+            await this.updateTableSchemaCore(bean)
         } finally {
-            this.schemaLock.release();
+            this.schemaLock.release()
         }
     }
 
     protected async updateTableSchemaCore(bean: Bean) {
-        this.devLog("Check Update Table Schema");
+        this.devLog("Check Update Table Schema")
 
         if (!this._knex) {
-            throw "Error: Please execute R.setup(.....) first.";
+            throw "Error: Please execute R.setup(.....) first."
         }
 
-        let exists = await this.hasTable(bean.getType());
+        let exists = await this.hasTable(bean.getType())
 
         if (!exists) {
-            this.debugLog("Create table: " + bean.getType());
+            this.debugLog("Create table: " + bean.getType())
 
             try {
                 let queryPromise = this._knex.schema.createTable(
                     bean.getType(),
                     function (table) {
-                        table.increments().primary();
+                        table.increments().primary()
                     }
-                );
-                this.queryLog(queryPromise);
-                await queryPromise;
+                )
+                this.queryLog(queryPromise)
+                await queryPromise
             } catch (error) {
-                this.checkAllowedSchemaError(error);
+                this.checkAllowedSchemaError(error)
             }
         }
 
         // Don't put it inside callback, causes problem than cannot add columns!
-        let columnInfo = await this.inspect(bean.getType());
+        let columnInfo = await this.inspect(bean.getType())
         //console.devLog(columnInfo);
 
         try {
             let queryPromise = this._knex.schema.table(
                 bean.getType(),
                 async (table) => {
-                    let obj = bean.export(false);
+                    let obj = bean.export(false)
 
                     for (let fieldName in obj) {
-                        let value = obj[fieldName];
-                        let addField = false;
-                        let alterField = false;
-                        let valueType = this.getDataType(value, fieldName);
-                        this.devLog("Best column type =", valueType);
+                        let value = obj[fieldName]
+                        let addField = false
+                        let alterField = false
+                        let valueType = this.getDataType(value, fieldName)
+                        this.devLog("Best column type =", valueType)
 
                         // Check if the field exists in current database
                         if (!columnInfo.hasOwnProperty(fieldName)) {
-                            addField = true;
+                            addField = true
                         }
 
                         // If exists in current database, but the type is not good for the data
@@ -285,129 +282,130 @@ export class RedBeanNode {
                         ) {
                             this.debugLog(
                                 `Alter column is needed: ${fieldName} (dbType: ${columnInfo[fieldName].type}) (valueType: ${valueType})`
-                            );
-                            addField = true;
-                            alterField = true;
+                            )
+                            addField = true
+                            alterField = true
                         }
 
                         if (addField) {
-                            let col;
+                            let col
 
                             if (valueType == "integer") {
                                 this.debugLog(
                                     "Create field (Int): " + fieldName
-                                );
-                                col = table.integer(fieldName);
+                                )
+                                col = table.integer(fieldName)
                             } else if (valueType == "bigInteger") {
                                 this.debugLog(
                                     "Create field (bigInteger): " + fieldName
-                                );
-                                col = table.bigInteger(fieldName);
+                                )
+                                col = table.bigInteger(fieldName)
                             } else if (valueType == "float") {
                                 this.debugLog(
                                     "Create field (Float): " + fieldName
-                                );
-                                col = table.float(fieldName);
+                                )
+                                col = table.float(fieldName)
                             } else if (valueType == "boolean") {
                                 this.debugLog(
                                     "Create field (Boolean): " + fieldName
-                                );
-                                col = table.boolean(fieldName);
+                                )
+                                col = table.boolean(fieldName)
                             } else if (valueType == "text") {
                                 this.debugLog(
                                     "Create field (Text): " + fieldName
-                                );
-                                col = table.text(fieldName, "longtext");
+                                )
+                                col = table.text(fieldName, "longtext")
                             } else if (valueType == "datetime") {
                                 this.debugLog(
                                     "Create field (Datetime): " + fieldName
-                                );
-                                col = table.dateTime(fieldName);
+                                )
+                                col = table.dateTime(fieldName)
                             } else if (valueType == "date") {
                                 this.debugLog(
                                     "Create field (Date): " + fieldName
-                                );
-                                col = table.date(fieldName);
+                                )
+                                col = table.date(fieldName)
                             } else if (valueType == "time") {
                                 this.debugLog(
                                     "Create field (Time): " + fieldName
-                                );
-                                col = table.time(fieldName);
+                                )
+                                col = table.time(fieldName)
                             } else {
                                 this.debugLog(
                                     "Create field (String): " + fieldName
-                                );
-                                col = table.string(fieldName);
+                                )
+                                col = table.string(fieldName)
                             }
 
                             if (alterField) {
-                                this.debugLog("This is modify column");
-                                col.alter();
+                                this.debugLog("This is modify column")
+                                col.alter()
                             }
 
                             // Add index key for relation fields
                             if (fieldName.endsWith("_id")) {
-                                table.index(fieldName);
+                                table.index(fieldName)
                             }
                         }
                     }
                 }
-            );
-            this.queryLog(queryPromise);
-            await queryPromise;
+            )
+            this.queryLog(queryPromise)
+            await queryPromise
         } catch (error) {
-            this.checkAllowedSchemaError(error);
+            this.checkAllowedSchemaError(error)
         }
     }
 
     getDataType(value, fieldName: string = "") {
-        let type = typeof value;
+        let type = typeof value
 
-        this.devLog("Date Type of", value, "=", type);
+        this.devLog("Date Type of", value, "=", type)
 
         // Relation field as integer
         if (fieldName.endsWith("_id")) {
-            return "integer";
+            return "integer"
         }
 
         if (type == "boolean") {
-            return "boolean";
+            return "boolean"
         } else if (type == "number") {
             if (Number.isInteger(value)) {
                 if (value > 2147483647) {
-                    return "bigInteger";
+                    return "bigInteger"
                 } else if (
                     this.dbType == "mysql" &&
                     (value == 1 || value == 0)
                 ) {
-                    return "boolean"; // Tinyint, for mysql only
+                    return "boolean" // Tinyint, for mysql only
                 } else {
-                    return "integer";
+                    return "integer"
                 }
             } else {
-                return "float";
+                return "float"
             }
         } else if (type == "string") {
             if (value.length > 230) {
-                return "text";
+                return "text"
             } else {
                 if (this.isDateTime(value)) {
-                    return "datetime";
+                    return "datetime"
                 } else if (this.isDate(value)) {
-                    return "date";
+                    return "date"
                 } else if (this.isTime(value)) {
-                    return "time";
+                    return "time"
                 }
-
-                return "varchar";
+                return "varchar"
             }
+        } else if (type == "object" || Array.isArray(value)) {
+            return "JSON"
         } else {
-            return "varchar";
+            return "varchar"
         }
     }
 
     isValidType(columnType, valueType) {
-        this.devLog("isValidType", columnType, valueType);
+        this.devLog("isValidType", columnType, valueType)
 
         // Boolean
         if (columnType == "boolean" || columnType == "tinyint") {
@@ -421,7 +419,7 @@ export class RedBeanNode {
                 valueType == "date" ||
                 valueType == "time"
             ) {
-                return false;
+                return false
             }
         }
 
@@ -436,7 +434,7 @@ export class RedBeanNode {
                 valueType == "date" ||
                 valueType == "time"
             ) {
-                return false;
+                return false
             }
         }
 
@@ -450,7 +448,7 @@ export class RedBeanNode {
                 valueType == "date" ||
                 valueType == "time"
             ) {
-                return false;
+                return false
             }
         }
 
@@ -463,7 +461,7 @@ export class RedBeanNode {
                 valueType == "date" ||
                 valueType == "time"
             ) {
-                return false;
+                return false
             }
         }
 
@@ -475,7 +473,7 @@ export class RedBeanNode {
                 valueType == "datetime" ||
                 valueType == "date"
             ) {
-                return false;
+                return false
             }
         }
 
@@ -486,14 +484,14 @@ export class RedBeanNode {
                 valueType == "text" ||
                 valueType == "datetime"
             ) {
-                return false;
+                return false
             }
         }
 
         // DateTime
         if (columnType == "datetime") {
             if (valueType == "varchar" || valueType == "text") {
-                return false;
+                return false
             }
         }
 
@@ -501,58 +499,58 @@ export class RedBeanNode {
         // Varchar cannot store text only
         if (columnType == "varchar") {
             if (valueType == "text") {
-                return false;
+                return false
             }
         }
 
-        return true;
+        return true
     }
 
     async close() {
-        await this.knex.destroy();
+        await this.knex.destroy()
     }
 
     load(type: string, id: number) {
-        return this.findOne(type, " id = ?", [id]);
+        return this.findOne(type, " id = ?", [id])
     }
 
     protected normalizeErrorMsg(error) {
         if (this.dbType == "sqlite") {
-            return error.message;
+            return error.message
         } else if (this.dbType == "mysql") {
-            return error.code;
+            return error.code
         } else if (this.dbType == "mssql") {
-            return error.message;
+            return error.message
         }
 
-        return error;
+        return error
     }
 
     protected checkError(error, allowedErrorList: (string | string[])[]) {
-        this.devLog(error);
+        this.devLog(error)
 
-        let msg = this.normalizeErrorMsg(error);
+        let msg = this.normalizeErrorMsg(error)
 
         for (let allowedError of allowedErrorList) {
             if (Array.isArray(allowedError)) {
-                let allMatch = true;
+                let allMatch = true
 
                 for (let s of allowedError) {
                     if (!msg.includes(s)) {
-                        allMatch = false;
-                        break;
+                        allMatch = false
+                        break
                     }
                 }
 
                 if (allMatch) {
-                    return;
+                    return
                 }
             } else if (msg.includes(allowedError)) {
-                return;
+                return
             }
         }
 
-        throw error;
+        throw error
     }
 
     /**
@@ -560,7 +558,7 @@ export class RedBeanNode {
      * @param error
      */
     public checkAllowedError(error) {
-        this.devLog("Check Allowed Error for bean query");
+        this.devLog("Check Allowed Error for bean query")
         this.checkError(error, [
             // SQLITE
             "SQLITE_ERROR: no such table:",
@@ -570,7 +568,7 @@ export class RedBeanNode {
 
             // MSSQL
             "Invalid object name",
-        ]);
+        ])
     }
 
     /**
@@ -578,7 +576,7 @@ export class RedBeanNode {
      * @param error
      */
     public checkAllowedSchemaError(error) {
-        this.devLog("Check Schema Error");
+        this.devLog("Check Schema Error")
 
         this.checkError(error, [
             // SQLITE
@@ -588,27 +586,27 @@ export class RedBeanNode {
             // MYSQL
             "ER_TABLE_EXISTS_ERROR",
             "ER_DUP_FIELDNAME",
-        ]);
+        ])
     }
 
     async trash(bean: Bean) {
         if (bean.id) {
             if (bean instanceof BeanModel) {
-                bean.onDelete();
+                bean.onDelete()
             }
 
             let queryPromise = this.knex
                 .table(bean.getType())
                 .where({ id: bean.id })
-                .delete();
+                .delete()
 
-            this.queryLog(queryPromise);
+            this.queryLog(queryPromise)
 
-            await queryPromise;
-            bean.id = 0;
+            await queryPromise
+            bean.id = 0
 
             if (bean instanceof BeanModel) {
-                bean.onAfterDelete();
+                bean.onAfterDelete()
             }
         }
     }
@@ -619,7 +617,7 @@ export class RedBeanNode {
      */
     async trashAll(beans: Bean[]) {
         for (let bean of beans) {
-            await this.trash(bean);
+            await this.trash(bean)
         }
     }
 
@@ -628,9 +626,9 @@ export class RedBeanNode {
         clause: string,
         data: readonly RawBinding[] = []
     ): QueryBuilder {
-        let queryPromise = this.knex.table(type).whereRaw(clause, data);
-        this.queryLog(queryPromise);
-        return queryPromise;
+        let queryPromise = this.knex.table(type).whereRaw(clause, data)
+        this.queryLog(queryPromise)
+        return queryPromise
     }
 
     async find(
@@ -639,11 +637,11 @@ export class RedBeanNode {
         data: readonly RawBinding[] = []
     ) {
         try {
-            let list = await this.findCore(type, clause, data);
-            return this.convertToBeans(type, list);
+            let list = await this.findCore(type, clause, data)
+            return this.convertToBeans(type, list)
         } catch (error) {
-            this.checkAllowedError(error);
-            return [];
+            this.checkAllowedError(error)
+            return []
         }
     }
 
@@ -656,7 +654,7 @@ export class RedBeanNode {
             type,
             this,
             this.findCore(type, clause, data)
-        );
+        )
     }
 
     protected findAllCore(
@@ -664,7 +662,7 @@ export class RedBeanNode {
         clause: string,
         data: readonly RawBinding[] = []
     ) {
-        return this.findCore(type, " 1=1 " + clause, data);
+        return this.findCore(type, " 1=1 " + clause, data)
     }
 
     async findAll(
@@ -673,11 +671,11 @@ export class RedBeanNode {
         data: readonly RawBinding[] = []
     ) {
         try {
-            let list = await this.findAllCore(type, clause, data);
-            return this.convertToBeans(type, list);
+            let list = await this.findAllCore(type, clause, data)
+            return this.convertToBeans(type, list)
         } catch (error) {
-            this.checkAllowedError(error);
-            return [];
+            this.checkAllowedError(error)
+            return []
         }
     }
 
@@ -690,7 +688,7 @@ export class RedBeanNode {
             type,
             this,
             this.findAllCore(type, clause, data)
-        );
+        )
     }
 
     async findOne(
@@ -698,68 +696,68 @@ export class RedBeanNode {
         clause: string = "",
         data: readonly RawBinding[] = []
     ) {
-        let queryPromise = this.knex.table(type).whereRaw(clause, data).first();
-        this.queryLog(queryPromise);
-        let obj;
+        let queryPromise = this.knex.table(type).whereRaw(clause, data).first()
+        this.queryLog(queryPromise)
+        let obj
 
         try {
-            obj = await queryPromise;
+            obj = await queryPromise
         } catch (error) {
-            this.checkAllowedError(error);
+            this.checkAllowedError(error)
         }
 
         if (!obj) {
-            return null;
+            return null
         }
 
-        let bean = this.convertToBean(type, obj);
-        return bean;
+        let bean = this.convertToBean(type, obj)
+        return bean
     }
 
     convertToBean(type: string, obj): Bean {
-        this.devLog("convertToBean", type, obj);
+        this.devLog("convertToBean", type, obj)
 
-        let isDispense;
+        let isDispense
 
         if (obj.id) {
-            isDispense = false;
+            isDispense = false
         } else {
-            isDispense = true;
+            isDispense = true
         }
 
-        let bean = this.createBean(type, isDispense);
-        bean.import(obj);
+        let bean = this.createBean(type, isDispense)
+        bean.import(obj)
 
         // Call on after import value
         if (!isDispense && bean instanceof BeanModel) {
-            bean.onOpen();
+            bean.onOpen()
         }
 
-        return bean;
+        return bean
     }
 
     convertToBeans(type: string, objList) {
-        let list: Bean[] = [];
+        let list: Bean[] = []
 
         objList.forEach((obj) => {
             if (obj != null) {
-                list.push(this.convertToBean(type, obj));
+                list.push(this.convertToBean(type, obj))
             }
-        });
+        })
 
-        return list;
+        return list
     }
 
     async exec(sql: string, data: string[] = []) {
-        await this.normalizeRaw(sql, data);
+        await this.normalizeRaw(sql, data)
     }
 
     getAll(sql: string, data: readonly RawBinding[] = []) {
-        return this.normalizeRaw(sql, data);
+        return this.normalizeRaw(sql, data)
     }
 
     getAllStream(sql: string, data: string[] = []) {
-        return this.normalizeRawCore(sql, data).stream();
+        return this.normalizeRawCore(sql, data).stream()
     }
 
     async getRow(sql: string, data: RawBinding[] = [], autoLimit = false) {
@@ -767,93 +765,93 @@ export class RedBeanNode {
             if (this.dbType == "mssql") {
                 // SELECT TOP 1
                 if (sql.trim().toLowerCase().startsWith("select ")) {
-                    sql = sql.replace(/select/i, "$& TOP 1");
+                    sql = sql.replace(/select/i, "$& TOP 1")
                 }
             } else {
-                let limitTemplate = this.knex.limit(1).toSQL().toNative();
+                let limitTemplate = this.knex.limit(1).toSQL().toNative()
 
                 // LIMIT 1
-                sql = sql + limitTemplate.sql.replace("select *", "");
-                data = data.concat(limitTemplate.bindings);
+                sql = sql + limitTemplate.sql.replace("select *", "")
+                data = data.concat(limitTemplate.bindings)
             }
         }
 
-        this.queryLog(sql);
+        this.queryLog(sql)
 
-        let result = await this.normalizeRaw(sql, data);
+        let result = await this.normalizeRaw(sql, data)
 
         if (result.length > 0) {
-            return result[0];
+            return result[0]
         } else {
-            return null;
+            return null
         }
     }
 
     protected normalizeRawCore(sql, data) {
-        let queryPromise = this.knex.raw(sql, data);
-        this.queryLog(queryPromise);
-        return queryPromise;
+        let queryPromise = this.knex.raw(sql, data)
+        this.queryLog(queryPromise)
+        return queryPromise
     }
 
     async normalizeRaw(sql, data): Promise<LooseObject[]> {
-        let result = await this.normalizeRawCore(sql, data);
-        this.queryLog(sql);
+        let result = await this.normalizeRawCore(sql, data)
+        this.queryLog(sql)
 
         if (this.dbType == "mysql") {
-            result = result[0];
+            result = result[0]
         }
 
-        return result;
+        return result
     }
 
     async getCol(
         sql: string,
         data: readonly RawBinding[] = []
     ): Promise<any[]> {
-        let list = await this.getAll(sql, data);
-        let key: string;
+        let list = await this.getAll(sql, data)
+        let key: string
 
         return list.map((obj) => {
             // Use first column as key
             if (!key) {
                 for (let k in obj) {
-                    key = k;
-                    break;
+                    key = k
+                    break
                 }
             }
-            return obj[key];
-        });
+            return obj[key]
+        })
     }
 
     async getCell(sql: string, data: RawBinding[] = [], autoLimit = true) {
-        let row = await this.getRow(sql, data, autoLimit);
+        let row = await this.getRow(sql, data, autoLimit)
 
         if (row) {
-            return Object.values(row)[0];
+            return Object.values(row)[0]
         } else {
-            return null;
+            return null
         }
     }
 
     async getAssoc(sql: string, data: string[] = []) {
-        let list = await this.getAll(sql, data);
-        let keyKey: string;
-        let valueKey: string;
-        let obj = {};
+        let list = await this.getAll(sql, data)
+        let keyKey: string
+        let valueKey: string
+        let obj = {}
 
         if (list.length > 0) {
-            let keys = Object.keys(list[0]);
-            keyKey = keys[0];
-            valueKey = keys[1];
+            let keys = Object.keys(list[0])
+            keyKey = keys[0]
+            valueKey = keys[1]
 
-            for (let i = 0; i < list.length; i++) {
-                let key = list[i][keyKey];
-                let value = list[i][valueKey];
-                obj[key] = value;
+            for (let i = 0;i < list.length;i++) {
+                let key = list[i][keyKey]
+                let value = list[i][valueKey]
+                obj[key] = value
             }
         }
 
-        return obj;
+        return obj
     }
 
     async count(
@@ -862,10 +860,10 @@ export class RedBeanNode {
         data: RawBinding[] = [],
         autoLimit = true
     ) {
-        let where = "";
+        let where = ""
 
         if (clause) {
-            where = "WHERE " + clause;
+            where = "WHERE " + clause
         }
 
         try {
@@ -873,17 +871,17 @@ export class RedBeanNode {
                 `SELECT COUNT(*) FROM ?? ${where}`,
                 [type, ...data],
                 autoLimit
-            );
+            )
         } catch (error) {
-            this.checkAllowedError(error);
-            return 0;
+            this.checkAllowedError(error)
+            return 0
         }
     }
 
     inspect(type) {
-        let queryPromise = this.knex.table(type).columnInfo();
-        this.queryLog(queryPromise);
-        return queryPromise;
+        let queryPromise = this.knex.table(type).columnInfo()
+        this.queryLog(queryPromise)
+        return queryPromise
     }
 
     /**
@@ -894,22 +892,22 @@ export class RedBeanNode {
             // @ts-ignore
             console.warn(
                 "Warning: Transaction is not working in non-freeze mode."
-            );
-            return this;
+            )
+            return this
         }
 
         if (this._transaction) {
-            throw "Previous transaction is not committed";
+            throw "Previous transaction is not committed"
         }
 
-        let redBeanNode = new RedBeanNode();
-        redBeanNode.setup(this._knex);
-        redBeanNode._debug = this._debug;
-        redBeanNode._freeze = this._freeze;
-        redBeanNode.devDebug = this.devDebug;
-        redBeanNode._transaction = await this.knex.transaction();
+        let redBeanNode = new RedBeanNode()
+        redBeanNode.setup(this._knex)
+        redBeanNode._debug = this._debug
+        redBeanNode._freeze = this._freeze
+        redBeanNode.devDebug = this.devDebug
+        redBeanNode._transaction = await this.knex.transaction()
 
-        return redBeanNode;
+        return redBeanNode
     }
 
     /**
@@ -917,8 +915,8 @@ export class RedBeanNode {
      */
     async commit() {
         if (this._transaction) {
-            await this._transaction.commit();
-            this._transaction = null;
+            await this._transaction.commit()
+            this._transaction = null
         }
     }
 
@@ -927,8 +925,8 @@ export class RedBeanNode {
      */
     async rollback() {
         if (this._transaction) {
-            await this._transaction.rollback();
-            this._transaction = null;
+            await this._transaction.rollback()
+            this._transaction = null
         }
     }
 
@@ -936,39 +934,39 @@ export class RedBeanNode {
      * @param callback
      */
     async transaction(callback: (trx: RedBeanNode) => void) {
-        let trx = await this.begin();
+        let trx = await this.begin()
 
         try {
-            await callback(trx);
-            await trx.commit();
+            await callback(trx)
+            await trx.commit()
         } catch (error) {
-            await trx.rollback();
+            await trx.rollback()
         }
     }
 
     protected devLog(...params: any[]) {
         if (this.devDebug) {
-            console.log("[R]", ...params);
+            console.log("[R]", ...params)
         }
     }
 
     protected debugLog(...params: any[]) {
         if (this.isDebug()) {
-            console.log("[R]", ...params);
+            console.log("[R]", ...params)
         }
     }
 
     public queryLog(queryPromise: string | Promise<any>) {
         if (this._debug) {
-            let sql;
+            let sql
 
             if (typeof queryPromise === "string") {
-                sql = queryPromise;
+                sql = queryPromise
             } else {
-                sql = queryPromise.toString();
+                sql = queryPromise.toString()
             }
 
-            console.log("\x1b[36m%s\x1b[0m", "Query:", sql);
+            console.log("\x1b[36m%s\x1b[0m", "Query:", sql)
         }
     }
 
@@ -978,54 +976,54 @@ export class RedBeanNode {
      * @param deepCopy
      */
     duplicate(targetBean: Bean, deepCopy = true) {
-        let bean = this.dispense(targetBean.beanMeta.type);
+        let bean = this.dispense(targetBean.beanMeta.type)
 
-        bean.import(targetBean.export());
-        bean.id = undefined;
+        bean.import(targetBean.export())
+        bean.id = undefined
 
         if (!deepCopy) {
-            return bean;
+            return bean
         }
 
-        throw "Error: deep copy not implemented yet";
+        throw "Error: deep copy not implemented yet"
     }
 
     hasTable(tableName: string) {
-        let queryPromise = this.knex.schema.hasTable(tableName);
-        this.queryLog(queryPromise);
-        return queryPromise;
+        let queryPromise = this.knex.schema.hasTable(tableName)
+        this.queryLog(queryPromise)
+        return queryPromise
     }
 
     isFrozen() {
-        return this._freeze;
+        return this._freeze
     }
 
     isDebug() {
-        return this._debug;
+        return this._debug
     }
 
     isoDateTime(dateTime: dayjs.Dayjs | Date | undefined = undefined) {
-        let dayjsObject;
+        let dayjsObject
 
         if (dateTime instanceof dayjs) {
-            dayjsObject = dateTime;
+            dayjsObject = dateTime
         } else {
-            dayjsObject = dayjs(dateTime);
+            dayjsObject = dayjs(dateTime)
         }
 
-        return dayjsObject.format("YYYY-MM-DD HH:mm:ss");
+        return dayjsObject.format("YYYY-MM-DD HH:mm:ss")
     }
 
     isoDate(date: dayjs.Dayjs | Date | undefined = undefined) {
-        let dayjsObject;
+        let dayjsObject
 
         if (date instanceof dayjs) {
-            dayjsObject = date;
+            dayjsObject = date
         } else {
-            dayjsObject = dayjs(date);
+            dayjsObject = dayjs(date)
         }
 
-        return dayjsObject.format("YYYY-MM-DD");
+        return dayjsObject.format("YYYY-MM-DD")
     }
 
     /**
@@ -1033,81 +1031,81 @@ export class RedBeanNode {
      * @param date
      */
     isoTime(date: dayjs.Dayjs | Date | undefined = undefined) {
-        let dayjsObject;
+        let dayjsObject
 
         if (date instanceof dayjs) {
-            dayjsObject = date;
+            dayjsObject = date
         } else {
-            dayjsObject = dayjs(date);
+            dayjsObject = dayjs(date)
         }
 
-        return dayjsObject.format("HH:mm:ss");
+        return dayjsObject.format("HH:mm:ss")
     }
 
     isDate(value: string) {
-        let format = "YYYY-MM-DD";
-        return dayjs(value, format).format(format) === value;
+        let format = "YYYY-MM-DD"
+        return dayjs(value, format).format(format) === value
     }
 
     isDateTime(value: string) {
-        let format = "YYYY-MM-DD HH:mm:ss";
-        return dayjs(value, format).format(format) === value;
+        let format = "YYYY-MM-DD HH:mm:ss"
+        return dayjs(value, format).format(format) === value
     }
 
     isTime(value: string) {
         // Since dayjs is not supporting time only format, so prefix a fake date to parse
-        value = "2020-10-20 " + value;
-        let format = "YYYY-MM-DD HH:mm:ss";
-        return dayjs(value, format).format(format) === value;
+        value = "2020-10-20 " + value
+        let format = "YYYY-MM-DD HH:mm:ss"
+        return dayjs(value, format).format(format) === value
     }
 
     autoloadModels(dir: string) {
-        let tsFileList, jsFileList;
+        let tsFileList, jsFileList
 
-        let isTSNode = !!process[Symbol.for("ts-node.register.instance")];
-        let ext, fileList;
+        let isTSNode = !!process[Symbol.for("ts-node.register.instance")]
+        let ext, fileList
 
         if (isTSNode) {
-            ext = ".ts";
+            ext = ".ts"
         } else {
-            ext = ".js";
+            ext = ".js"
         }
 
         if (this.devDebug && dir == "./model") {
-            fileList = glob.sync("./lib/model/*" + ext);
+            fileList = glob.sync("./lib/model/*" + ext)
         } else {
-            fileList = glob.sync(dir + "/*" + ext);
+            fileList = glob.sync(dir + "/*" + ext)
         }
 
         for (let file of fileList) {
             if (file.endsWith(".d.ts")) {
-                continue;
+                continue
             }
 
             if (this.devDebug) {
-                file = file.replace("lib/", "");
+                file = file.replace("lib/", "")
             }
 
-            let info = path.parse(file);
-            let obj = require(path.resolve(file));
+            let info = path.parse(file)
+            let obj = require(path.resolve(file))
 
             if (
                 "default" in obj &&
                 obj.default.prototype instanceof BeanModel
             ) {
-                this.modelList[info.name] = obj.default;
+                this.modelList[info.name] = obj.default
             } else if (obj.prototype instanceof BeanModel) {
-                this.modelList[info.name] = obj;
+                this.modelList[info.name] = obj
             } else {
                 // @ts-ignore
-                console.log(file, "is not a valid BeanModel, skipped");
+                console.log(file, "is not a valid BeanModel, skipped")
             }
         }
     }
 
     get modelList() {
-        return this._modelList;
+        return this._modelList
     }
 }
 
-export let R = new RedBeanNode();
+export let Seed = new RedBeanNode()

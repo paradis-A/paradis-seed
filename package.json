@@ -1,7 +1,7 @@
 {
-    "name": "paradis-redbean-node",
+    "name": "paradis-seed",
     "version": "0.0.19",
-    "description": "RedBeanNode is an easy to use ORM tool for Node.js, strongly inspired by RedBeanPHP. It automatically generates the tables and columns on-the-fly",
+    "description": "Fork from Red Bean Node",
     "main": "dist/redbean-node.js",
     "types": "dist/redbean-node.d.ts",
     "files": [
@@ -17,7 +17,8 @@
         "example": "ts-node dev_example.ts",
         "example2": "node -r ts-node/register --inspect dev_example2.ts"
     },
-    "author": "Louis Lam",
+    "Original Author": "Louis Lam",
+    "author": "Clarence D. Eda",
     "license": "MIT",
     "dependencies": {
         "@types/node": "^14.11.2",
@@ -27,31 +28,18 @@
         "knex": "^0.21.6",
         "mysql": "^2.18.1"
     },
-    "homepage": "https://redbean-node.whatsticker.online",
     "bugs": {
         "url": "https://github.com/louislam/redbean-node/issues"
     },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/louislam/redbean-node"
-    },
     "keywords": [
-        "redbeanphp",
-        "orm",
-        "sql",
-        "mysql",
-        "mariadb",
-        "sqlite",
-        "query",
-        "knex",
-        "bean",
-        "redbean",
-        "redbean-node",
-        "redbeannode"
+       "asdfg"
     ],
     "np": {
         "releaseDraft": false,
         "cleanup": false
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "devDependencies": {
         "@types/knex": "^0.16.1",

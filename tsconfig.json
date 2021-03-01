@@ -9,10 +9,10 @@
         "declaration": true,
         "outDir": "dist",
         "rootDir": "lib",
-        "strict": true,
+        "strict": false,
         "esModuleInterop": true,
         "noImplicitAny": false,
-        "removeComments": true,
+        "removeComments": false,
         "experimentalDecorators": true
     },
     "exclude": [
@@ -20,5 +20,6 @@
         "dist",
         "lib/model",
         "dev_*.ts"
-    ]
+    ],
+    "semicolon": [false, "never", "ignore-interfaces"]
 }
